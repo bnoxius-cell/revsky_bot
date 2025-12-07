@@ -18,5 +18,4 @@ bot = commands.Bot(command_prefix='Jarvis', intents=intents)
 async def on_ready():
     print("Yo")
 
-
 bot.run(token)
