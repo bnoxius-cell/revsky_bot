@@ -17,5 +17,3 @@ bot = commands.Bot(command_prefix='Jarvis', intents=intents)
 @bot.event
 async def on_ready():
     print("Yo")
-
-bot.run(token)
