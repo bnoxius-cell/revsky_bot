@@ -14,12 +14,14 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix='Jarvis', intents=intents)
+bot = commands.Bot(command_prefix='$', intents=intents)
 
 @bot.event
 async def on_ready():
     #channel = bot.get_channel(1447202993119432747)
     print("Hello, I am J.A.R.V.I.S.")
+
+
 
 
 @bot.event
