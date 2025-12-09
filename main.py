@@ -4,6 +4,7 @@ import logging
 from dotenv import load_dotenv
 import os
 import asyncio
+import web
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -76,4 +77,5 @@ async def on_message(message):
     # let the bot process messages simultaneously
     await bot.process_commands(message)
 
+web.keep_alive()
 bot.run(token)
