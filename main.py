@@ -17,8 +17,8 @@ bot = commands.Bot(command_prefix='Jarvis', intents=intents)
 
 @bot.event
 async def on_ready():
-    channel = bot.get_channel(1447202993119432747)
-    await channel.send("Hello, I am J.A.R.V.I.S.")
+    #channel = bot.get_channel(1447202993119432747)
+    print("Hello, I am J.A.R.V.I.S.")
 
 
 @bot.event
@@ -33,6 +33,8 @@ async def on_message(message):
         client = "Master Rin"
     elif message.author.name == "orekilvr":
         client = "Lady Jai"
+    elif message.author.name == "meowjestickitty":
+        client = "Cheska"
     else:
         client = "sir"
 
@@ -40,20 +42,32 @@ async def on_message(message):
     # call jarvis -> say command
     if message.content.lower() == "jarvis":
         await message.channel.send(f"Yes, {client}?")
-
         # Define a check so we only listen to *that same user* and *same channel*
         def check(m):
             return m.author == message.author and m.channel == message.channel
         try:
-            # Wait for next message from the user
             reply = await bot.wait_for("message", check=check, timeout=30)
 
+            # COMMANDS:
             if reply.content.lower() == "hi":
                 await message.channel.send(f"Hello, {client}.")
 
-            #if reply.content.lower() == "":
+            if reply.content.lower() == "stroke it a lil" and client == "sir":
+                await message.channel.send(f"For you, {client} — always.")
 
 
+            if reply.content.lower() == "clean your messages":
+                async for msg in reply.channel.history(limit=10):
+                    if msg.author == bot.user:
+                        await msg.delete()
+
+
+            # PURGE COMMAND
+            if reply.content.lower().startswith("purge"):
+                splittedText = reply.content.split()
+                number = splittedText[1]
+                async for msg in reply.channel.history(limit=int(number)+3):
+                    await msg.delete()
             else:
                 await message.channel.send(f"I'm not sure what you mean, {client}.")
         except asyncio.TimeoutError:
