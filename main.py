@@ -17,12 +17,17 @@ bot = commands.Bot(command_prefix='Jarvis', intents=intents)
 
 @bot.event
 async def on_ready():
-    print("Yo")
+    channel = bot.get_channel(1447202993119432747)
+    await channel.send("Hello, I am J.A.R.V.I.S.")
+
 
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
         return
+
+
+    # Clients
     client = ""
     if message.author.name == "chiaou":
         client = "Master Rin"
@@ -30,6 +35,8 @@ async def on_message(message):
         client = "Lady Jai"
     else:
         client = "sir"
+
+
     # call jarvis -> say command
     if message.content.lower() == "jarvis":
         await message.channel.send(f"Yes, {client}?")
@@ -44,10 +51,11 @@ async def on_message(message):
             if reply.content.lower() == "hi":
                 await message.channel.send(f"Hello, {client}.")
 
+            #if reply.content.lower() == "":
 
 
             else:
-                await message.channel.send(f"Unknown command: {reply.content}")
+                await message.channel.send(f"I'm not sure what you mean, {client}.")
         except asyncio.TimeoutError:
             await message.channel.send(f"You took too long, {client}.")
 
