@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import asyncio
 import web
+import yt_dlp
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -20,6 +21,48 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 async def on_ready():
     #channel = bot.get_channel(1447202993119432747)
     print("Hello, I am J.A.R.V.I.S.")
+
+
+ytdlp_opts = {
+    'format': 'bestaudio/best',
+    'quiet': True,
+    'noplaylist': True
+}
+
+@bot.command()
+async def play(ctx, *, url):
+    if ctx.author.voice is None:
+        return await ctx.send("You need to be in a voice channel first.")
+
+    voice_channel = ctx.author.voice.channel
+
+    if ctx.voice_client is None:
+        await voice_channel.connect()
+    else:
+        await ctx.voice_client.move_to(voice_channel)
+
+    vc = ctx.voice_client
+
+    if vc.is_playing():
+        vc.stop()
+
+    with yt_dlp.YoutubeDL(ytdlp_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        audio_url = info["url"]
+
+    source = discord.FFmpegPCMAudio(audio_url, executable=r"C:\Users\Ian\Documents\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe")
+    vc.play(source)
+
+    await ctx.send(f"Now playing: **{info.get('title')}**")
+
+@bot.command()
+async def stop(ctx):
+    if ctx.voice_client:
+        ctx.voice_client.stop()
+        await ctx.voice_client.disconnect()
+        await ctx.send("Stopped and disconnected.")
+    else:
+        await ctx.send("I'm not in a voice channel.")
 
 
 
@@ -59,6 +102,10 @@ async def on_message(message):
 
 
             if reply.content.lower() == "clean your messages":
+                if not reply.author.guild_permissions.manage_messages:
+                    await message.channel.send(f"Sorry, {client}. You can't do that.")
+                    return
+
                 async for msg in reply.channel.history(limit=10):
                     if msg.author == bot.user:
                         await msg.delete()
@@ -82,5 +129,9 @@ async def on_message(message):
     # let the bot process messages simultaneously
     await bot.process_commands(message)
 
+
+bot.load_extension("cogs.music")
 web.keep_alive()
+
+
 bot.run(token)
