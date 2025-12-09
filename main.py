@@ -27,7 +27,6 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-
     # Clients
     client = ""
     if message.author.name == "chiaou":
@@ -61,13 +60,17 @@ async def on_message(message):
                 async for msg in reply.channel.history(limit=10):
                     if msg.author == bot.user:
                         await msg.delete()
-
+            if reply.content.lower() == "hey jude":
+                await message.channel.send(f"this month's been bad.")
 
             # PURGE COMMAND
-            if reply.content.lower().startswith("purge"):
+            if ("clear" in reply.content.lower() or "purge" in reply.content.lower()) and "message" in reply.content.lower():
+                number = 0
                 splittedText = reply.content.split()
-                number = splittedText[1]
-                async for msg in reply.channel.history(limit=int(number)+3):
+                for i in splittedText:
+                    if i.isdigit():
+                        number = int(i) + 3
+                async for msg in reply.channel.history(limit=number):
                     await msg.delete()
             else:
                 await message.channel.send(f"I'm not sure what you mean, {client}.")
