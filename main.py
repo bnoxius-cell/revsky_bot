@@ -110,6 +110,9 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
+    if message.channel.name != "bot":
+        return
+
     user_id = message.author.id
     content = message.content
     calling = is_calling_jarvis(content)
