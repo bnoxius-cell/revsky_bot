@@ -6,6 +6,12 @@ from dotenv import load_dotenv
 import os
 import web  # assuming your keep_alive.py or similar
 from openai import OpenAI
+import time
+
+# Conversation state memory
+conversations = {}  # {user_id: {"history": [...], "last_time": timestamp}}
+CONVO_TIMEOUT = 45  # seconds
+
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -24,77 +30,141 @@ def load_jarvis_persona(filepath="jarvis_persona.txt"):
     with open(filepath, 'r', encoding='utf-8') as file:
         return file.read()
 
+
+def is_active_conversation(user_id):
+    if user_id not in conversations:
+        return False
+    return (time.time() - conversations[user_id]["last_time"]) < CONVO_TIMEOUT
+
+
+def add_to_history(user_id, role, content):
+    if user_id not in conversations:
+        conversations[user_id] = {"history": [], "last_time": time.time()}
+    conversations[user_id]["history"].append({"role": role, "content": content})
+    conversations[user_id]["last_time"] = time.time()
+
+
+def clear_conversation(user_id):
+    if user_id in conversations:
+        del conversations[user_id]
+
+
 def is_calling_jarvis(text: str) -> bool:
-    """
-    Returns True if the user is clearly addressing Jarvis,
-    not just mentioning the name in a sentence.
-    """
+    t = text.lower().strip()
 
-    text = text.lower().strip()
-
-    # Patterns that strongly indicate the bot is being addressed
-    call_phrases = [
-        "jarvis,",          # "Jarvis, help me"
-        "hey jarvis",       # "hey jarvis what's up?"
-        "ok jarvis",
-        "okay jarvis",
-        "yo jarvis",
-        "hi jarvis",
-        "hello jarvis",
-    ]
-
-    # If message *starts* with his name, it's almost always a direct call
-    if text.startswith("jarvis"):
+    # direct name check (primary trigger)
+    if "jarvis" in t:
         return True
 
-    # Check phrase-based invocation
-    for phrase in call_phrases:
-        if phrase in text:
-            return True
+    # natural-language calls (very forgiving)
+    call_keywords = [
+        "help me", "can you", "could you", "what is", "who is",
+        "explain", "calculate", "solve", "tell me", "show me",
+        "i need", "how do i", "what's", "whats", "who's", "whos"
+    ]
 
-    # Check if the name appears before a request verb
-    # Example: "dang jarvis can you help me?"
-    request_verbs = ["help", "tell", "explain", "do", "make", "check", "can you", "could you"]
+    if any(k in t for k in call_keywords):
+        return True
 
-    if "jarvis" in text:
-        for verb in request_verbs:
-            if verb in text and text.index("jarvis") < text.index(verb):
-                return True
-
-    # If none of the above match, it's probably casual mention
     return False
 
 
-async def generate_reply(user_message, pronoun):
+
+async def generate_reply(user_id, user_message, name):
     persona = load_jarvis_persona()
-    # Compose messages array for chat completion
-    messages = [
-        {"role": "system", "content": persona},
-        {"role": "user", "content": f"{user_message}\n(Refer to user as {pronoun})."}
-    ]
+
+    # Build messages array
+    messages = [{"role": "system", "content": persona}]
+
+    # Add history IF active conversation
+    if is_active_conversation(user_id):
+        messages.extend(conversations[user_id]["history"])
+
+    # Add new user message
+    messages.append({"role": "user", "content": f"{user_message}"})
+
+    # AI call
     response = ai.chat.completions.create(
         model="gpt-4.1-mini",
         messages=messages,
         temperature=0.7,
         max_tokens=300
     )
-    return response.choices[0].message.content.strip()
+
+    reply = response.choices[0].message.content.strip()
+
+    # Save both the user's message & Jarvis reply to history
+    add_to_history(user_id, "user", user_message)
+    add_to_history(user_id, "assistant", reply)
+
+    return reply
+
 
 @bot.event
 async def on_ready():
     print("Hello, I am J.A.R.V.I.S.")
+
 
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
         return
 
-    # Analyze intent
-    if is_calling_jarvis(message.content):
-        reply = await generate_reply(message.content, message.author.name)
-        await message.channel.send(reply)
+    user_id = message.author.id
+    content = message.content
+    calling = is_calling_jarvis(content)
+    active = is_active_conversation(user_id)
 
+    # 1. If user calls Jarvis → start conversation
+    if calling and not active:
+        print("user called jarvis")
+        reply = await generate_reply(user_id, content, message.author.name)
+        conversations[user_id] = conversations.get(user_id, {"history": [], "last_time": time.time()})
+        await message.channel.send(reply)
+        return
+
+    # 2. If conversation is active → continue conversation (no need to say jarvis again)
+    # 2. If conversation is active
+    if active:
+
+        lowered = content.lower()
+
+        # 1. If Jarvis is CLEARLY being called, continue
+        if "jarvis" in lowered:
+            print("continue the conversation")
+            reply = await generate_reply(user_id, content, message.author.name)
+            await message.channel.send(reply)
+            return
+
+        # 2. If message sounds like a question or task
+        task_words = ["what", "how", "why", "calculate", "solve", "explain", "who", "where", "when", "?", "did"]
+        if any(w in lowered for w in task_words):
+            print("user continues the conversation with a question or task")
+            reply = await generate_reply(user_id, content, message.author.name)
+            await message.channel.send(reply)
+            return
+
+        # 3. If user actually mentions another user → end conversation
+        if message.mentions:
+            clear_conversation(user_id)
+            print("user mentions someone → end conversation")
+            return
+
+        # 4. If message is casual chat → end conversation
+        casual = ["lol", "lmao", "bro", "dude", "wtf", "nah", "ok", "fr", "ong"]
+        if any(lowered.startswith(c) for c in casual):
+            clear_conversation(user_id)
+            print("user engaged in casual conversation, most likely with another player")
+            return
+
+        # otherwise: end conversation
+        clear_conversation(user_id)
+        return
+
+    # 3. If user is NOT talking to Jarvis and no active chat → ignore
+    print("jarvis is not being called")
     await bot.process_commands(message)
+
 
 web.keep_alive()
 bot.run(token)
