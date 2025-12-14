@@ -99,20 +99,7 @@ async def generate_reply(user_id, user_message, name):
 
     return reply
 
-
-@bot.event
-async def on_ready():
-    print("Hello, I am J.A.R.V.I.S.")
-
-
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
-
-    if message.channel.name != "bot":
-        return
-
+async def ai_reply(message):
     user_id = message.author.id
     content = message.content
     calling = is_calling_jarvis(content)
@@ -164,8 +151,25 @@ async def on_message(message):
         clear_conversation(user_id)
         return
 
-    # 3. If user is NOT talking to Jarvis and no active chat → ignore
-    print("jarvis is not being called")
+
+@bot.event
+async def on_ready():
+    print("Hello, I am J.A.R.V.I.S.")
+
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    if message.channel.name != "jarvis-spam":
+        return
+
+    # Responsive AI
+    await ai_reply(message)
+
+
+
     await bot.process_commands(message)
 
 
