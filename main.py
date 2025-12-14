@@ -162,7 +162,7 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    if message.channel.name != "jarvis-spam":
+    if message.channel.name != "╰‿╯-jarvis-spam":
         return
 
     # Responsive AI
